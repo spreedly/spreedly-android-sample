@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Spreedly: Sample 3DS App</string>
+    <string name="title_activity_checkout">Checkout Form</string>
+    <string-array name="three_ds_request_type_array">
+        <item>app</item>
+        <item>browser</item>
+    </string-array>
+</resources>

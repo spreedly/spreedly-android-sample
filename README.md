@@ -16,15 +16,15 @@ gateway support as time goes on. Also note that the Spreedly SDK is Alpha, and s
 
 Valid 3DS 2 credit card: 
 
-* number: 4917610000000000
-* cvv: 737
-* month: 10
-* year: 2020
+* number: `4917610000000000`
+* cvv: `737`
+* month: `10`
+* year: `2020`
 
 Flows:
 
-* Amount of 12002 - results in a "frictionless" flow
-* Amount of 12100 - results in a "Basic text authentication" flow
-* Amount of 12120 - results in a "Basic multi select" flow
-* Amount of 12130 - results in a "Basic out-of-band (OOB) authentication" flow
-* Amount of 12150 - results in a "App single select then text authentication" flow
+* Amount of `12002` - results in a "frictionless" flow
+* Amount of `12100` - results in a "Basic text authentication" flow
+* Amount of `12120` - results in a "Basic multi select" flow
+* Amount of `12130` - results in a "Basic out-of-band (OOB) authentication" flow
+* Amount of `12150` - results in a "App single select then text authentication" flow

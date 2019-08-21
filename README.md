@@ -9,7 +9,7 @@ things that you need before running the app
 
 
 *Note* At this time only the Adyen gateway is supported. We'll be adding more
-gateway support as time goes on.
+gateway support as time goes on. Also note that the Spreedly SDK is Alpha, and should not be used in production.
 
 
 ## Adyen Test Data:

@@ -28,3 +28,5 @@ Flows:
 * Amount of `12120` - results in a "Basic multi select" flow
 * Amount of `12130` - results in a "Basic out-of-band (OOB) authentication" flow
 * Amount of `12150` - results in a "App single select then text authentication" flow
+
+Challenge passcode: `1234`

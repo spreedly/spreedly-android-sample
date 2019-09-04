@@ -76,74 +76,69 @@ class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener
 
         gatewayNameText?.text = "Issuing purchase request"
         doAsync {
-            val newTransaction= client?.createGatewayPurchase(gateway?.token, transaction)
-            if (newTransaction == null || newTransaction.state == "gateway_processing_failed") {
-                uiThread {
-                    Log.d("transaction:failure", "Failed to create transaction")
-                    setUsable()
-                    gatewayNameText?.text = "Purchase request failed"
-                }
-            } else if (newTransaction.state == "pending") {
-                uiThread {
-                    val lifecycle =
-                        Spreedly.threeDsInit(it, newTransaction.threeDsContext)
-                    gatewayNameText?.text = "Creating device fingerprint"
-                    val threeDsData = lifecycle.deviceFingerprintData
-                    gatewayNameText?.text = "Sending device fingerprint"
-                    runContinue(threeDsData, newTransaction, lifecycle)
-                }
-            } else if(newTransaction.state == "succeeded") {
-                gatewayNameText?.text = "Purchase completed successfully"
-                navigateToSuccess()
+            val transaction = client?.createGatewayPurchase(gateway?.token, transaction)
+            uiThread {
+                handleTransaction(transaction, null)
             }
         }
     }
 
-    fun runContinue(threeDsData: String, newTransaction: Transaction, lifecycle: ILifecycle) {
+
+    private fun handleTransaction(transaction: Transaction?, existingLifecycle: ILifecycle?) {
+        if (transaction == null || transaction.state == "gateway_processing_failed") {
+            Log.d("transaction:failure", "Failed to create transaction")
+            setUsable()
+            gatewayNameText?.text = "Purchase request failed"
+        } else if (transaction.succeeded) {
+            existingLifecycle?.cleanup()
+            gatewayNameText?.text = "Purchase completed successfully"
+            navigateToSuccess()
+            Log.d("transaction:state", "succeeded")
+        } else if (transaction.state == "pending" && transaction.requiredAction == "device_fingerprint") {
+            val newLifecycle = Spreedly.threeDsInit(this, transaction.threeDsContext)
+            gatewayNameText?.text = "Creating device fingerprint"
+            val threeDsData = newLifecycle.deviceFingerprintData
+            gatewayNameText?.text = "Sending device fingerprint"
+            runContinue(threeDsData, transaction, newLifecycle)
+        } else if (transaction.state == "pending" && transaction.requiredAction == "redirect") {
+            // TODO: add redirect here
+        } else if (transaction.state == "pending" && transaction.requiredAction == "challenge") {
+            gatewayNameText?.text = "Starting challenge flow"
+            existingLifecycle?.doChallenge(this, transaction?.threeDsContext, object: ChallengeEventHandler() {
+                override fun cancel() {
+                    existingLifecycle.cleanup()
+                    setUsable()
+                    gatewayNameText?.text = "User aborted challenge flow"
+                }
+
+                override fun error(type: String) {
+                    existingLifecycle.cleanup()
+                    gatewayNameText?.text = "Challenge flow error: $type"
+                    setUsable()
+                    longToast("There was an error in the challenge flow")
+                }
+
+                override fun success(threeDsData: String) {
+                    doAsync {
+                        client?.continueTransaction(transaction, threeDsData)
+                        uiThread {
+                            existingLifecycle.cleanup()
+                            gatewayNameText?.text = "Purchase completed successfully"
+                            navigateToSuccess()
+                        }
+                    }
+                }
+            })
+        }
+    }
+
+    private fun runContinue(threeDsData: String, newTransaction: Transaction, lifecycle: ILifecycle) {
         doAsync {
             val continuedTransaction = client?.continueTransaction(newTransaction, threeDsData)
 
-            when (continuedTransaction?.state) {
-                "succeeded" -> {
-                    uiThread {
-                        lifecycle.cleanup()
-                        gatewayNameText?.text = "Purchase completed successfully"
-                        navigateToSuccess()
-                    }
-                    Log.d("transaction:state", "succeeded")
-                }
-                "pending" -> {
-                    uiThread {
-                        gatewayNameText?.text = "Starting challenge flow"
-                        lifecycle.doChallenge(it, continuedTransaction?.threeDsContext, object: ChallengeEventHandler() {
-                            override fun cancel() {
-                                lifecycle.cleanup()
-                                setUsable()
-                                gatewayNameText?.text = "User aborted challenge flow"
-                            }
-
-                            override fun error(type: String) {
-                                lifecycle.cleanup()
-                                gatewayNameText?.text = "Challenge flow error: $type"
-                                setUsable()
-                                longToast("There was an error in the challenge flow")
-                            }
-
-                            override fun success(threeDsData: String) {
-                                doAsync {
-                                    client?.continueTransaction(continuedTransaction, threeDsData)
-                                    uiThread {
-                                        lifecycle.cleanup()
-                                        gatewayNameText?.text = "Purchase completed successfully"
-                                        navigateToSuccess()
-                                    }
-                                }
-                            }
-                        })
-                    }
-                }
+            uiThread {
+                handleTransaction(continuedTransaction, lifecycle)
             }
-
         }
     }
 

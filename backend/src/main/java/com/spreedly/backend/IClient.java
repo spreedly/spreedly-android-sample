@@ -22,9 +22,12 @@ public interface IClient {
     @POST("v1/transactions/{token}/continue.json")
     Call<TransactionWithRoot> continueTransaction(@Path("token") String token, @Body Continue body);
 
+    @GET("v1/transactions/{token}.json")
+    Call<TransactionWithRoot> showTransaction(@Path("token") String token);
+
     // Gateway Based Requests
-    @GET("v1/gateways/{gateway}.json")
-    Call<GatewayWithRoot> showGateway(@Path("gateway") String gateway);
+    @GET("v1/gateways/{token}.json")
+    Call<GatewayWithRoot> showGateway(@Path("token") String token);
 
     @GET("v1/gateways.json")
     Call<GatewayListing> listGateways();

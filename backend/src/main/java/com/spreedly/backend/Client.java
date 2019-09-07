@@ -77,6 +77,31 @@ public class Client implements Serializable {
         return new ArrayList<>();
     }
 
+    public Gateway showGateway(String token) throws IOException {
+        IClient client = getClient();
+        retrofit2.Call<GatewayWithRoot> call = client.showGateway(token);
+        GatewayWithRoot gatewayWithRoot = call.execute().body();
+
+        if (gatewayWithRoot != null) {
+            return gatewayWithRoot.getGateway();
+        }
+
+        return null;
+    }
+
+    public Transaction showTransaction(String token) throws IOException {
+        IClient client = getClient();
+        retrofit2.Call<TransactionWithRoot> call = client.showTransaction(token);
+        TransactionWithRoot transactionWithRoot = call.execute().body();
+
+        if (transactionWithRoot != null) {
+            return transactionWithRoot.getTransaction();
+        }
+
+        return null;
+    }
+
+
     public Transaction createGatewayPurchase(String gatewayToken, Transaction transaction) throws IOException {
         IClient client = getClient();
         retrofit2.Call<TransactionWithRoot> call = client.createGatewayPurchase(gatewayToken, new TransactionWithRoot(transaction));

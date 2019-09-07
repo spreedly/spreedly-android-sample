@@ -5,4 +5,9 @@
         <item>app</item>
         <item>browser</item>
     </string-array>
+    <string-array name="adyen_test_cards_array">
+        <item>4917610000000000</item>
+        <item>4212345678910006</item>
+        <item>4212345678901237</item>
+    </string-array>
 </resources>

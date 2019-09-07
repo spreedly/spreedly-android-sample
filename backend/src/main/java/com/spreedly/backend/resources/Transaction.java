@@ -18,8 +18,10 @@ public class Transaction extends Resource implements Serializable {
     @Expose @SerializedName("three_ds_version") private String threeDsVersion;
     @Expose @SerializedName("redirect_url") private String redirectUrl;
     @Expose @SerializedName("callback_url") private String callbackUrl;
-    @Expose @SerializedName("browser_info") String browserInfo;
-    @Expose @SerializedName("device_info") Map<String, Object> deviceInfo;
+    @Expose @SerializedName("browser_info") private String browserInfo;
+    @Expose @SerializedName("device_info") private Map<String, Object> deviceInfo;
+    @Expose @SerializedName("checkout_url") private String checkoutUrl;
+    @Expose @SerializedName("checkout_form") private TransactionCheckoutForm checkoutForm;
 
     @Expose @SerializedName("gateway_specific_fields") HashMap<String, HashMap<String, Object>> gatewaySpecificFields;
 
@@ -162,6 +164,17 @@ public class Transaction extends Resource implements Serializable {
 
     public String getThreeDsContext() {
         return threeDsContext;
+    }
+
+    public String getCheckoutForm() {
+        if (checkoutForm != null) {
+            return checkoutForm.getCdata();
+        }
+        return null;
+    }
+
+    public String getCheckoutUrl() {
+        return checkoutUrl;
     }
 
     // Setters

@@ -16,10 +16,10 @@ import org.jetbrains.anko.startActivity
 import org.jetbrains.anko.uiThread
 import java.io.Serializable
 
-class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener {
+class PurchaseActivity : SpreedlyClientInteractions() {
+    private var creditCardSelect: Spinner? = null
     private var amountText: TextView? = null
     private var attempt3dsSwitch: Switch? = null
-    private var creditCardText: TextView? = null
     private var cvvText: TextView? = null
     private var fullNameText: TextView? = null
     private var gatewayNameText: TextView? = null
@@ -28,7 +28,6 @@ class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener
     private var yearText: TextView? = null
 
     private var gateway: Gateway? = null
-    private var client: Client? = null
     private var transaction: Transaction = Transaction(CreditCard())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,11 +35,9 @@ class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener
         setContentView(R.layout.activity_purchase)
         setLoading()
         gateway = intent.getSerializableExtra("com.spreedly.sampleapp.gateway") as Gateway
-        client = intent.getSerializableExtra("com.spreedly.sampleapp.client") as Client
 
         amountText = findViewById<TextView>(R.id.amountText)
         attempt3dsSwitch = findViewById<Switch>(R.id.attempt3dsSwitch)
-        creditCardText = findViewById<TextView>(R.id.creditCardText)
         cvvText = findViewById<TextView>(R.id.cvvText)
         fullNameText = findViewById<TextView>(R.id.fullNameText)
         gatewayNameText = findViewById<TextView>(R.id.gatewayName)
@@ -54,18 +51,17 @@ class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener
         fullNameText?.requestFocus()
 
         transaction.callbackUrl = "https://example.com/callback"
-        transaction.redirectUrl = "https://example.com/redirect"
+        transaction.redirectUrl = "sampleapp://order-pending?gateway_token=${gateway?.token}"
 
-        val spinner: Spinner = findViewById(R.id.threeDsRequestType)
+        creditCardSelect = findViewById(R.id.creditCardSelect)
         ArrayAdapter.createFromResource(
             this,
-            R.array.three_ds_request_type_array,
+            R.array.adyen_test_cards_array,
             android.R.layout.simple_spinner_item
         ).also {
             it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinner.adapter = it
+            creditCardSelect?.adapter = it
         }
-        spinner.onItemSelectedListener = this
 
         setUsable()
     }
@@ -76,93 +72,26 @@ class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener
 
         gatewayNameText?.text = "Issuing purchase request"
         doAsync {
-            val transaction = client?.createGatewayPurchase(gateway?.token, transaction)
+            val transaction = client().createGatewayPurchase(gateway?.token, transaction)
             uiThread {
-                handleTransaction(transaction, null)
+                setUsable()
+                startActivity<OrderPending>(
+                    "com.spreedly.sampleapp.pending.transaction" to transaction as Serializable,
+                    "com.spreedly.sampleapp.pending.gateway" to gateway as Serializable
+                )
             }
         }
-    }
-
-
-    private fun handleTransaction(transaction: Transaction?, existingLifecycle: ILifecycle?) {
-        if (transaction == null || transaction.state == "gateway_processing_failed") {
-            Log.d("transaction:failure", "Failed to create transaction")
-            setUsable()
-            gatewayNameText?.text = "Purchase request failed"
-        } else if (transaction.succeeded) {
-            existingLifecycle?.cleanup()
-            gatewayNameText?.text = "Purchase completed successfully"
-            navigateToSuccess()
-            Log.d("transaction:state", "succeeded")
-        } else if (transaction.state == "pending" && transaction.requiredAction == "device_fingerprint") {
-            val newLifecycle = Spreedly.threeDsInit(this, transaction.threeDsContext)
-            gatewayNameText?.text = "Creating device fingerprint"
-            val threeDsData = newLifecycle.deviceFingerprintData
-            gatewayNameText?.text = "Sending device fingerprint"
-            runContinue(threeDsData, transaction, newLifecycle)
-        } else if (transaction.state == "pending" && transaction.requiredAction == "redirect") {
-            // TODO: add redirect here
-        } else if (transaction.state == "pending" && transaction.requiredAction == "challenge") {
-            gatewayNameText?.text = "Starting challenge flow"
-            existingLifecycle?.doChallenge(this, transaction?.threeDsContext, object: ChallengeEventHandler() {
-                override fun cancel() {
-                    existingLifecycle.cleanup()
-                    setUsable()
-                    gatewayNameText?.text = "User aborted challenge flow"
-                }
-
-                override fun error(type: String) {
-                    existingLifecycle.cleanup()
-                    gatewayNameText?.text = "Challenge flow error: $type"
-                    setUsable()
-                    longToast("There was an error in the challenge flow")
-                }
-
-                override fun success(threeDsData: String) {
-                    doAsync {
-                        client?.continueTransaction(transaction, threeDsData)
-                        uiThread {
-                            existingLifecycle.cleanup()
-                            gatewayNameText?.text = "Purchase completed successfully"
-                            navigateToSuccess()
-                        }
-                    }
-                }
-            })
-        }
-    }
-
-    private fun runContinue(threeDsData: String, newTransaction: Transaction, lifecycle: ILifecycle) {
-        doAsync {
-            val continuedTransaction = client?.continueTransaction(newTransaction, threeDsData)
-
-            uiThread {
-                handleTransaction(continuedTransaction, lifecycle)
-            }
-        }
-    }
-
-    override fun onItemSelected(parent: AdapterView<*>, view: View, pos: Int, id: Long) {
-        val requestType = parent.getItemAtPosition(pos).toString()
-
-        transaction.channel = requestType
-        if (transaction.channel == "none") {
-            transaction.channel = ""
-        }
-    }
-
-    override fun onNothingSelected(p0: AdapterView<*>?) {
-        transaction.channel = ""
     }
 
     private fun syncTransactionToView() {
         transaction.creditCard.fullName = fullNameText?.text.toString()
-        transaction.creditCard.number = creditCardText?.text.toString()
+        transaction.creditCard.number = creditCardSelect?.selectedItem.toString()
         transaction.creditCard.verificationValue = cvvText?.text.toString()
         transaction.creditCard.month = monthText?.text.toString()
         transaction.creditCard.year = yearText?.text.toString()
         transaction.threeDsVersion = threeDsVersionText?.text.toString()
         transaction.attempt3dSecure = attempt3dsSwitch?.isChecked
+        transaction.channel = "app"
 
         if (amountText?.text?.isNotBlank() == true) {
             transaction.amount = amountText?.text.toString().toInt()
@@ -179,31 +108,27 @@ class PurchaseActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener
 
     private fun setLoading() {
         findViewById<Button>(R.id.purchaseButton).isEnabled = false
-        findViewById<Button>(R.id.purchaseButton).setBackgroundColor(getResources().getColor(R.color.colorAccent))
 
+        findViewById<View>(R.id.creditCardSelect).isEnabled = false
         findViewById<View>(R.id.fullNameText).isEnabled = false
-        findViewById<View>(R.id.creditCardText).isEnabled = false
         findViewById<View>(R.id.cvvText).isEnabled = false
         findViewById<View>(R.id.monthText).isEnabled = false
         findViewById<View>(R.id.yearText).isEnabled = false
         findViewById<View>(R.id.threeDsVersionText).isEnabled = false
         findViewById<View>(R.id.attempt3dsSwitch).isEnabled = false
-        findViewById<View>(R.id.threeDsRequestType).isEnabled = false
         findViewById<View>(R.id.amountText).isEnabled = false
     }
 
     private fun setUsable() {
         findViewById<Button>(R.id.purchaseButton).isEnabled = true
-        findViewById<Button>(R.id.purchaseButton).setBackgroundColor(getResources().getColor(R.color.colorPrimaryDark))
 
+        findViewById<View>(R.id.creditCardSelect).isEnabled = true
         findViewById<View>(R.id.fullNameText).isEnabled = true
-        findViewById<View>(R.id.creditCardText).isEnabled = true
         findViewById<View>(R.id.cvvText).isEnabled = true
         findViewById<View>(R.id.monthText).isEnabled = true
         findViewById<View>(R.id.yearText).isEnabled = true
         findViewById<View>(R.id.threeDsVersionText).isEnabled = true
         findViewById<View>(R.id.attempt3dsSwitch).isEnabled = true
-        findViewById<View>(R.id.threeDsRequestType).isEnabled = true
         findViewById<View>(R.id.amountText).isEnabled = true
     }
 }

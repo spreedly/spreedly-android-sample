@@ -12,12 +12,7 @@ import java.io.Serializable
 import com.spreedly.backend.*
 import com.spreedly.backend.resources.*
 
-class MainActivity : AppCompatActivity() {
-    private val env = dotenv {
-        directory = "/assets"
-        filename = "env"
-    }
-
+class MainActivity : SpreedlyClientInteractions() {
     private var gateways: ArrayList<Gateway> = ArrayList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,9 +46,5 @@ class MainActivity : AppCompatActivity() {
                 list.adapter = arrayAdapter
             }
         }
-    }
-
-    private fun client(): Client {
-        return Client(env["SPREEDLY_ENVIRONMENT_KEY"], env["SPREEDLY_ENVIRONMENT_SECRET"], env["SPREEDLY_HOST"], true)
     }
 }
